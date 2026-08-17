@@ -1,0 +1,11 @@
+node_modules/
+dist/
+index.mjs
+client.js
+client.js.map
+testing.mjs
+testing.js.map
+*.tsbuildinfo
+.dsh-testkit/
+coverage/
+.DS_Store

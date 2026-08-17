@@ -1,0 +1,257 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  font-size: 13px;
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.description {
+  color: var(--dsh-text-secondary, #8b8f98);
+  font-size: 12px;
+}
+
+.headerActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  align-items: center;
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dsh-text-secondary, #8b8f98);
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--dsh-border, #e3e5e8);
+  border-radius: 6px;
+}
+
+.rowTitle {
+  flex: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rowBody {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsh-text-secondary, #8b8f98);
+}
+
+.row button,
+.headerActions button,
+.versionActions button,
+.editorFooter button,
+.cascadeRow button,
+.error button {
+  flex: none;
+  padding: 3px 10px;
+  font-size: 12px;
+  border: 1px solid var(--dsh-border, #e3e5e8);
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.row button:hover:not(:disabled),
+.headerActions button:hover:not(:disabled),
+.versionActions button:hover:not(:disabled) {
+  background: var(--dsh-hover, rgba(0, 0, 0, 0.05));
+}
+
+.row button:disabled,
+.headerActions button:disabled,
+.versionActions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--dsh-border, #e3e5e8);
+  border-radius: 8px;
+  background: var(--dsh-panel, rgba(0, 0, 0, 0.02));
+}
+
+.editorTitle {
+  font-weight: 600;
+}
+
+.editorLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--dsh-text-secondary, #8b8f98);
+}
+
+.editorInput {
+  min-height: 96px;
+  resize: vertical;
+  padding: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--dsh-border, #e3e5e8);
+  border-radius: 6px;
+  background: var(--dsh-input-bg, #ffffff);
+  color: inherit;
+}
+
+.cascadeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cascadeLabel {
+  font-size: 12px;
+  color: var(--dsh-text-secondary, #8b8f98);
+}
+
+.cascadeChoiceActive {
+  font-weight: 600;
+  border-color: var(--dsh-accent, #4d6bfe) !important;
+  color: var(--dsh-accent, #4d6bfe);
+}
+
+.costHint {
+  font-size: 12px;
+  color: #b26a00;
+}
+
+.editorFooter {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.editorFooter .primary {
+  border-color: var(--dsh-accent, #4d6bfe);
+  background: var(--dsh-accent, #4d6bfe);
+  color: #ffffff;
+}
+
+.versionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 5px;
+}
+
+.versionRow[data-current='true'] {
+  background: var(--dsh-hover, rgba(0, 0, 0, 0.05));
+}
+
+.versionSummary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  flex: none;
+  padding: 1px 6px;
+  font-size: 11px;
+  border-radius: 8px;
+  background: var(--dsh-accent, #4d6bfe);
+  color: #ffffff;
+}
+
+.runningBadge {
+  flex: none;
+  font-size: 11px;
+  color: #b26a00;
+}
+
+.versionActions {
+  display: flex;
+  gap: 6px;
+}
+
+.stopButton {
+  color: #b3261e;
+  border-color: #b3261e !important;
+}
+
+.runningBanner {
+  padding: 8px 10px;
+  font-size: 12px;
+  border: 1px solid #e0b25c;
+  border-radius: 6px;
+  color: #b26a00;
+  background: rgba(224, 178, 92, 0.08);
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  border: 1px solid #e0a0a0;
+  border-radius: 6px;
+  color: #b3261e;
+  background: rgba(224, 160, 160, 0.08);
+}
+
+.migration {
+  padding: 8px 10px;
+  font-size: 12px;
+  border: 1px solid #e0a0a0;
+  border-radius: 6px;
+  color: #b3261e;
+  background: rgba(224, 160, 160, 0.08);
+}
+
+.notice {
+  font-size: 12px;
+  color: var(--dsh-text-secondary, #8b8f98);
+}
+
+.versionNote {
+  font-size: 11px;
+  color: var(--dsh-text-secondary, #8b8f98);
+}
