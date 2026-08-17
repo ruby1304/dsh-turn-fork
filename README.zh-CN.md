@@ -106,6 +106,13 @@ npm test           # 构建 + node:test（core、lineage、P0 持久化回归）
   重启 → 残留检查），基于社区 [dsh-testkit](https://github.com/iiwish/dsh-testkit)，
   并生成 `.github/workflows/dsh-lifecycle.yml` CI 工作流。
 
+### Testkit 说明
+
+`dsh-test --suite full` 在 `--runner local` 下会报告 `flaky`：每次尝试的所有
+阶段都以完全一致的断言通过，但重复性摘要包含按尝试隔离的绝对路径与时间戳，
+它们天然互不相同（默认的 Docker runner 下运行根路径稳定，不受影响）。quick
+套件是此处的权威生命周期门禁；CI 工作流在 Docker 下运行它。
+
 ## 许可证
 
 MIT。`scripts/dsh-client-preset.ts` 中的客户端打包预设来自 DeepSeek Harness

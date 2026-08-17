@@ -10,3 +10,4 @@ testing.js.map
 coverage/
 .DS_Store
 .npmrc
+*.tgz

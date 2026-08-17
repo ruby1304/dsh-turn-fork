@@ -127,6 +127,15 @@ npm test           # build + node:test (core, lineage, P0 persistence regression
   [dsh-testkit](https://github.com/iiwish/dsh-testkit), plus the generated
   `.github/workflows/dsh-lifecycle.yml` CI workflow.
 
+### Testkit notes
+
+`dsh-test --suite full` reports `flaky` under `--runner local`: every attempt
+passes every stage with identical assertions, but the repeatability digest
+includes attempt-scoped absolute paths and timestamps, which necessarily
+differ between attempts (the Docker default runner keeps the run-root path
+stable). The quick suite is the authoritative lifecycle gate here; the CI
+workflow runs it under Docker.
+
 ## License
 
 MIT. The client bundle preset under `scripts/dsh-client-preset.ts` is vendored
