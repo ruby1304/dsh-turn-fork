@@ -11,3 +11,4 @@ coverage/
 .DS_Store
 .npmrc
 *.tgz
+HANDOFF.md
