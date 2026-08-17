@@ -42,30 +42,17 @@ import { projectTimeline, type PersistenceReaderFace } from './host/lineage.ts'
 /** Stable Cordis plugin name. */
 export const name = 'turn-fork'
 
-/** Hard dependencies: the fork transaction and timeline projection. */
+/**
+ * Hard dependencies: the fork transaction and timeline projection.
+ * `webServer` and `workspaceRegistry` are optional — headless profiles
+ * provide neither, and the plugin still loads (no HTTP route, no workspace
+ * attach) instead of stalling the whole composition.
+ */
 export const inject = [
   'sessions',
   'agents',
   'sessionQuery',
-  'workspaceRegistry',
-  'webServer',
 ]
-
-interface HttpServerFace {
-  host: '127.0.0.1' | '0.0.0.0'
-  port: number
-  register(route: {
-    kind: 'exact'
-    path: string
-    handler: (request: IncomingMessage, response: ServerResponse) => void | Promise<void>
-  }): () => void
-}
-
-declare module '@deepseek-ai/cordis' {
-  interface Context {
-    webServer: HttpServerFace
-  }
-}
 
 type OperationInverse = () => void | Promise<void>
 
@@ -86,9 +73,11 @@ function presetIdOf(session: PresetBearingSession, events: readonly SessionEvent
 
 /** Resolve the workspace a fork inherits, mirroring the official fork's
  * resolution: direct attachment first, then lineage ancestors when the source
- * is a subagent-origin session. */
+ * is a subagent-origin session. Absent registry (headless) means no attach. */
 async function sourceWorkspace(ctx: Context, source: ForkSource): Promise<Workspace | undefined> {
-  const workspaces = ctx.workspaceRegistry.list()
+  const registry = ctx.get('workspaceRegistry')
+  if (registry === undefined) return undefined
+  const workspaces = registry.list()
   const direct = workspaces.find(workspace => workspace.sessionIds.includes(source.id))
   if (direct !== undefined || source.header.origin !== 'subagent') return direct
   const lineage = await ctx.sessionQuery.traceSession(source.id)
@@ -235,8 +224,13 @@ function respondError(response: ServerResponse, status: number, error: unknown):
   respondJson(response, status, body)
 }
 
-async function handleRoute(ctx: Context, request: IncomingMessage, response: ServerResponse): Promise<void> {
-  if (!isTrustedRequest(request.headers.origin, request.headers.host, ctx.webServer.host, ctx.webServer.port)) {
+async function handleRoute(
+  ctx: Context,
+  webServer: import('@deepseek-ai/dsh-host-webserver').WebServer,
+  request: IncomingMessage,
+  response: ServerResponse,
+): Promise<void> {
+  if (!isTrustedRequest(request.headers.origin, request.headers.host, webServer.host, webServer.port)) {
     respondError(response, 403, new Error('请求未通过信任检查（Origin/Host 不允许）。'))
     return
   }
@@ -277,12 +271,15 @@ async function handleRoute(ctx: Context, request: IncomingMessage, response: Ser
   }
 }
 
-/** Register the reversible route contribution. */
+/** Register the reversible route contribution. Without a web server
+ * (headless profile) the plugin stays loaded with no HTTP surface. */
 export function apply(ctx: Context): void {
-  ctx.effect(() => ctx.webServer.register({
+  const webServer = ctx.get('webServer')
+  if (webServer === undefined) return
+  ctx.effect(() => webServer.register({
     kind: 'exact',
     path: TURN_FORK_PATH,
-    handler: (request, response) => handleRoute(ctx, request, response),
+    handler: (request, response) => handleRoute(ctx, webServer, request, response),
   }), 'turn-fork: HTTP route')
 }
 
