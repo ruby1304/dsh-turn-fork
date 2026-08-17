@@ -9,3 +9,4 @@ testing.js.map
 .dsh-testkit/
 coverage/
 .DS_Store
+.npmrc

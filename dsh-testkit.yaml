@@ -1,0 +1,12 @@
+schemaVersion: 1
+name: dsh-turn-fork-quick
+subject:
+  source: .
+dsh:
+  version: 0.1.0-rc.6
+expect:
+  boot: success
+  rows:
+    - turn-fork
+  services: []
+  tools: []
