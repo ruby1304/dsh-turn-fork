@@ -110,6 +110,8 @@ npm run build      # tsc typecheck + tsdown host/client bundles
 npm test           # build + node:test (core, lineage, P0 persistence regression)
 ```
 
+The development dependency graph and lifecycle workflow are pinned to DSH `0.1.0-rc.7`; the same build is also installed in the local rc.7 Web profile.
+
 ### Tests
 
 - `tests/p0-persistence.test.mjs` — the P0 regression: the plugin's real fork

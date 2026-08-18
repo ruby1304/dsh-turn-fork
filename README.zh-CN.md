@@ -93,6 +93,8 @@ npm run build      # tsc 类型检查 + tsdown 宿主/客户端打包
 npm test           # 构建 + node:test（core、lineage、P0 持久化回归）
 ```
 
+开发依赖图与生命周期 CI 当前锁定 DSH `0.1.0-rc.7`；同一构建也已安装在本机 rc.7 Web profile 中。
+
 ### 测试
 
 - `tests/p0-persistence.test.mjs` —— P0 回归：用本插件真实的 fork seed 构建
