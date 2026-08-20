@@ -93,7 +93,7 @@ npm run build      # tsc 类型检查 + tsdown 宿主/客户端打包
 npm test           # 构建 + node:test（core、lineage、P0 持久化回归）
 ```
 
-开发依赖图与生命周期 CI 当前锁定 DSH `0.1.0-rc.7`；同一构建也已安装在本机 rc.7 Web profile 中。
+0.1.1 以 DSH `0.1.0-rc.8` 开发并执行发布验证。三个插槽贡献现在通过 `slots.inject()` 等待 rc.8 的 slot 声明；`dsh-client-runtime/client` 使用 rc.8 隐式预加载的 client baseline，不再重复声明成插件专属 external。
 
 ### 测试
 

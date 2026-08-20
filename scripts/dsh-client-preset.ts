@@ -31,7 +31,7 @@ const CSS_VIRTUAL_SUFFIX = '.mjs'
  * runtime identity to share. Everything else under @deepseek-ai/* is either a
  * module-table entry (external) or a leak the purity gate rejects.
  */
-export const INLINE_SAFE = /^@deepseek-ai\/dsh-(host-apiproxy|session|llm|tools|brand)(\/|$)/
+export const INLINE_SAFE = /^@deepseek-ai\/dsh-(host-apiproxy|file-reference|session|llm|tools|brand)(\/|$)/
 
 /** Vendored framework libraries: ordinary libraries a browser bundle inlines. */
 const VENDORED_LIBRARY = /^@deepseek-ai\/(cosmokit|schemastery)(\/|$)/
@@ -50,22 +50,18 @@ export const PLATFORM_MODULES: readonly string[] = [
   'react-dom/client',
   '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-client-ui-slots',
-  '@deepseek-ai/dsh-client-web-react',
   '@deepseek-ai/dsh-client-ui-primitives',
-  '@deepseek-ai/dsh-client-ui-attachment',
-  '@deepseek-ai/dsh-client-schema-form',
 ]
 
 /**
- * The snapshot-store engine (createSnapshotStore/defineStore/shallowEqual)
- * lives in runtime pending its promotion-time rehoming; at runtime the lazy
- * CJS table answers the require natively because runtime is an immediately-tier
- * row registered before any dependent bundle materializes.
+ * Runtime/client is parser-preloaded by rc.8 and belongs to the implicit
+ * client baseline. It stays external in the bundle without being repeated in
+ * `dsh.client.external`, which is reserved for package-specific rows.
  */
-const RUNTIME_STORE_EXEMPTION = '@deepseek-ai/dsh-client-runtime/client'
+const PRELOADED_RUNTIME_EXTERNAL = '@deepseek-ai/dsh-client-runtime/client'
 
 /** Externals resolved from the loader module table. */
-export const CLIENT_EXTERNALS: readonly string[] = [...PLATFORM_MODULES, RUNTIME_STORE_EXEMPTION]
+export const CLIENT_EXTERNALS: readonly string[] = [...PLATFORM_MODULES, PRELOADED_RUNTIME_EXTERNAL]
 
 /** Resolve an emitted JS asset import against its source-tree counterpart. */
 function sourceAssetPath(source: string, importer: string): string {
@@ -91,25 +87,28 @@ export function clientBundle(id: string, options: UserConfig = {}): UserConfig {
     outDir: 'dist',
     format: 'cjs',
     platform: 'browser',
+    target: 'es2024',
     // Types are checked by tsc; dts here would wrap banner/footer into .d.cts.
     dts: false,
     // Plugin code is fetched outside Vite's module graph, so its own bundle
     // must carry the TS/TSX mapping consumed by browser profiling tools.
     sourcemap: true,
     clean: false,
-    external: [...CLIENT_EXTERNALS],
+    deps: {
+      neverBundle: (specifier: string) => CLIENT_EXTERNALS.includes(specifier),
+      alwaysBundle: (specifier: string) => !CLIENT_EXTERNALS.includes(specifier),
+    },
     // Browser bundles inline node-idiom deps (zustand/immer read
     // process.env.NODE_ENV; zustand's esm build also probes
     // import.meta.env.MODE, which a CJS output cannot carry). A require() the
     // module table cannot answer is a guaranteed runtime throw, so the rule is
-    // the table list itself: no opinion for table entries (external above
-    // wins), bundle everything else.
+    // the table list itself: neverBundle above wins for table entries; bundle
+    // everything else.
     define: {
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV ?? 'production'),
       'import.meta.env.MODE': JSON.stringify(process.env.NODE_ENV ?? 'production'),
       'import.meta.env': JSON.stringify({ MODE: process.env.NODE_ENV ?? 'production' }),
     },
-    noExternal: (id: string) => (CLIENT_EXTERNALS.includes(id) ? undefined : true),
     plugins: [{
       // Bundle purity gate (build-time mirror of the module-edge rules):
       // platform seed entries stay external, inline-safe wire layers inline,

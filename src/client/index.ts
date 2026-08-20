@@ -52,28 +52,28 @@ export function apply(ctx: ClientContext): void {
     for (const controller of controllers.values()) controller.refreshIfLoaded()
   })
 
-  ctx.slots.register({
+  ctx.slots.inject('conversation.view', () => ctx.slots.register({
     name: 'conversation.view',
     id: 'turn-fork-timeline',
     order: TURN_FORK_VIEW_ORDER,
     label: () => t('viewLabel'),
     ...locale === undefined ? {} : { locale: 'turn-fork' as const },
     inject: (sessionId: SessionId) => controllerFor(sessionId).face,
-  }, TurnForkTimelineView)
+  }, TurnForkTimelineView))
 
-  ctx.slots.register({
+  ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({
     name: 'conversation.session.header.actions',
     id: 'turn-fork-controls',
     order: TURN_FORK_VIEW_ORDER,
     ...locale === undefined ? {} : { locale: 'turn-fork' as const },
     inject: (sessionId: SessionId) => controllerFor(sessionId).face,
-  }, TurnForkHeaderActions)
+  }, TurnForkHeaderActions))
 
-  ctx.slots.register({
+  ctx.slots.inject('conversation.chat.assistant-actions', () => ctx.slots.register({
     name: 'conversation.chat.assistant-actions',
     id: 'turn-fork-assistant-actions',
     order: 100,
     ...locale === undefined ? {} : { locale: 'turn-fork' as const },
     inject: (sessionId: SessionId) => controllerFor(sessionId).face,
-  }, AssistantMessageActions)
+  }, AssistantMessageActions))
 }

@@ -110,7 +110,7 @@ npm run build      # tsc typecheck + tsdown host/client bundles
 npm test           # build + node:test (core, lineage, P0 persistence regression)
 ```
 
-The development dependency graph and lifecycle workflow are pinned to DSH `0.1.0-rc.7`; the same build is also installed in the local rc.7 Web profile.
+Version 0.1.1 is developed and release-tested against DSH `0.1.0-rc.8`. Slot contributions now wait for their rc.8 declarations through `slots.inject()`, while `dsh-client-runtime/client` uses rc.8's implicit preloaded client baseline rather than a redundant package-specific external.
 
 ### Tests
 
