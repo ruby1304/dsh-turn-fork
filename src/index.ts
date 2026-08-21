@@ -274,13 +274,14 @@ async function handleRoute(
 /** Register the reversible route contribution. Without a web server
  * (headless profile) the plugin stays loaded with no HTTP surface. */
 export function apply(ctx: Context): void {
-  const webServer = ctx.get('webServer')
-  if (webServer === undefined) return
-  ctx.effect(() => webServer.register({
-    kind: 'exact',
-    path: TURN_FORK_PATH,
-    handler: (request, response) => handleRoute(ctx, webServer, request, response),
-  }), 'turn-fork: HTTP route')
+  ctx.inject(['webServer'], (webCtx) => {
+    const webServer = webCtx.webServer
+    return webServer.register({
+      kind: 'exact',
+      path: TURN_FORK_PATH,
+      handler: (request, response) => handleRoute(webCtx, webServer, request, response),
+    })
+  })
 }
 
 export { closedTurns, isLegacyFormatError, isTrustedRequest, MAX_REQUEST_BODY_BYTES, readJsonBody } from './host/core.ts'
