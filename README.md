@@ -110,7 +110,7 @@ npm run build      # tsc typecheck + tsdown host/client bundles
 npm test           # build + node:test (core, lineage, P0 persistence regression)
 ```
 
-Version 0.1.1 is developed and release-tested against DSH `0.1.0-rc.8`. Slot contributions now wait for their rc.8 declarations through `slots.inject()`, while `dsh-client-runtime/client` uses rc.8's implicit preloaded client baseline rather than a redundant package-specific external.
+Version 0.1.2 is developed and release-tested against DSH `0.1.1-rc.2`. Slot contributions wait for their rc.2 declarations through `slots.inject()`, while `dsh-client-runtime/client` uses rc.2's implicit preloaded client baseline rather than a redundant package-specific external.
 
 ### Tests
 
@@ -124,19 +124,21 @@ Version 0.1.1 is developed and release-tested against DSH `0.1.0-rc.8`. Slot con
   operation decoding.
 - `tests/lineage.test.mjs` — version projection, undo/redo stacks, running
   flags.
+- `tests/rc2-lifecycle.test.mjs` and `tests/rc2-package-contract.test.mjs` —
+  optional Web lifecycle injection plus exact rc.2 manifest/lock closure.
 - `dsh-testkit.yaml` — real-host lifecycle gate (install → boot → register →
   uninstall → reboot → residue) via the community
   [dsh-testkit](https://github.com/iiwish/dsh-testkit), plus the generated
-  `.github/workflows/dsh-lifecycle.yml` CI workflow.
+  `.github/workflows/dsh-lifecycle.yml` CI workflow, both pinned to rc.2.
 
 ### Testkit notes
 
-`dsh-test --suite full` reports `flaky` under `--runner local`: every attempt
-passes every stage with identical assertions, but the repeatability digest
-includes attempt-scoped absolute paths and timestamps, which necessarily
-differ between attempts (the Docker default runner keeps the run-root path
-stable). The quick suite is the authoritative lifecycle gate here; the CI
-workflow runs it under Docker.
+The published dsh-testkit package currently declares a prerelease range that
+does not semver-admit `0.1.1-rc.2`, so it is deliberately not part of this
+candidate's npm development lock. The checked-in quick-suite contract and CI
+action remain pinned to rc.2; local package checks use the direct lifecycle,
+real JSONL persistence, and exact package-lock tests above without resolving a
+mixed rc.8 graph.
 
 ## License
 

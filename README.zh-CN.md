@@ -93,7 +93,7 @@ npm run build      # tsc 类型检查 + tsdown 宿主/客户端打包
 npm test           # 构建 + node:test（core、lineage、P0 持久化回归）
 ```
 
-0.1.1 以 DSH `0.1.0-rc.8` 开发并执行发布验证。三个插槽贡献现在通过 `slots.inject()` 等待 rc.8 的 slot 声明；`dsh-client-runtime/client` 使用 rc.8 隐式预加载的 client baseline，不再重复声明成插件专属 external。
+0.1.2 以 DSH `0.1.1-rc.2` 开发并执行发布验证。三个插槽贡献通过 `slots.inject()` 等待 rc.2 的 slot 声明；`dsh-client-runtime/client` 使用 rc.2 隐式预加载的 client baseline，不再重复声明成插件专属 external。
 
 ### 测试
 
@@ -104,16 +104,18 @@ npm test           # 构建 + node:test（core、lineage、P0 持久化回归）
 - `tests/core.test.mjs` —— steering 保真、计划边界、seed 构造、模型配置推导、
   信任围栏矩阵、body 上限、操作解码。
 - `tests/lineage.test.mjs` —— 版本投影、撤销/重做栈、运行中标记。
+- `tests/rc2-lifecycle.test.mjs` 与 `tests/rc2-package-contract.test.mjs` ——
+  可选 Web 生命周期注入，以及精确的 rc.2 manifest/lock 闭环。
 - `dsh-testkit.yaml` —— 真实宿主生命周期门禁（安装 → 启动 → 注册 → 卸载 →
   重启 → 残留检查），基于社区 [dsh-testkit](https://github.com/iiwish/dsh-testkit)，
-  并生成 `.github/workflows/dsh-lifecycle.yml` CI 工作流。
+  并生成 `.github/workflows/dsh-lifecycle.yml` CI 工作流，两者都精确锁定 rc.2。
 
 ### Testkit 说明
 
-`dsh-test --suite full` 在 `--runner local` 下会报告 `flaky`：每次尝试的所有
-阶段都以完全一致的断言通过，但重复性摘要包含按尝试隔离的绝对路径与时间戳，
-它们天然互不相同（默认的 Docker runner 下运行根路径稳定，不受影响）。quick
-套件是此处的权威生命周期门禁；CI 工作流在 Docker 下运行它。
+当前已发布的 dsh-testkit 所声明预发布范围在 semver 规则下不接受
+`0.1.1-rc.2`，因此本候选不把它放进 npm 开发锁，避免混入 rc.8 依赖图。仓库内
+quick-suite 契约和 CI action 仍精确锁定 rc.2；本地包门禁则由上面的直接生命周期、
+真实 JSONL 持久化和精确 package-lock 测试负责。
 
 ## 许可证
 

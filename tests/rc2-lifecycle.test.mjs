@@ -1,10 +1,10 @@
-/** rc.8 lifecycle contract: optional webServer may arrive after plugin load. */
+/** rc.2 lifecycle contract: optional webServer may arrive after plugin load. */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { Context } from '@deepseek-ai/cordis'
 import * as TurnFork from '../index.mjs'
 
-const FIXTURE_SESSION_ID = 'fixture-rc8-session'
+const FIXTURE_SESSION_ID = 'fixture-rc2-session'
 
 function fixtureServices() {
   const record = {
@@ -50,7 +50,7 @@ async function disposeAll(disposers) {
   for (const dispose of disposers.reverse()) await dispose()
 }
 
-test('headless rc.8 profile loads without webServer', async () => {
+test('headless rc.2 profile loads without webServer', async () => {
   const ctx = new Context()
   const serviceDisposers = provideRequired(ctx)
   const plugin = await ctx.plugin(TurnFork)
@@ -63,7 +63,7 @@ test('headless rc.8 profile loads without webServer', async () => {
   }
 })
 
-test('delayed rc.8 webServer injection registers exact GET /turn-fork JSON route', async () => {
+test('delayed rc.2 webServer injection registers exact GET /turn-fork JSON route', async () => {
   const ctx = new Context()
   const serviceDisposers = provideRequired(ctx)
   const plugin = await ctx.plugin(TurnFork)

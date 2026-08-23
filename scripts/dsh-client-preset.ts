@@ -54,7 +54,7 @@ export const PLATFORM_MODULES: readonly string[] = [
 ]
 
 /**
- * Runtime/client is parser-preloaded by rc.8 and belongs to the implicit
+ * Runtime/client is parser-preloaded by rc.2 and belongs to the implicit
  * client baseline. It stays external in the bundle without being repeated in
  * `dsh.client.external`, which is reserved for package-specific rows.
  */
