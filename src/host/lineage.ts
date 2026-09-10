@@ -6,7 +6,7 @@
  * Dependencies are injected as narrow faces so the projection can be unit
  * tested without a live Cordis context.
  */
-import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
+import { SessionLogOffset, type SessionEvent, type SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionLineageNode, SessionRecord, SessionLineageTrace } from '@deepseek-ai/dsh-session-query'
 import {
   TURN_FORK_VERSION_EVENT,
@@ -20,16 +20,24 @@ import {
 import { closedTurns, isTextualBlock, type ClosedTurn, type TurnForkVersionEvent } from './core.ts'
 
 export interface PersistenceReaderFace {
-  inspect(sessionId: SessionId): Promise<{ events: readonly SessionEvent[] }>
-  readFrom(sessionId: SessionId, fromSeq: number): Promise<{ events: readonly SessionEvent[] }>
+  inspect(sessionId: SessionId): Promise<{
+    events: readonly SessionEvent[]
+    inheritedEventCount: SessionLogOffset
+  }>
 }
 
 export interface LineageDeps {
-  sessions: { get(id: SessionId): { events: readonly SessionEvent[] } | undefined }
+  sessions: { get(id: SessionId): {
+    inheritedEventCount: SessionLogOffset
+    snapshotEvents(): readonly SessionEvent[]
+  } | undefined }
   agents: { get(id: SessionId): { status: 'idle' | 'running' } | undefined }
   sessionQuery: {
     traceSession(id: SessionId): Promise<SessionLineageTrace>
-    readSession(id: SessionId): Promise<{ events: SessionEvent[] }>
+    readSession(id: SessionId): Promise<{
+      events: SessionEvent[]
+      inheritedEventCount: SessionLogOffset
+    }>
   }
   sessionPersistence?: PersistenceReaderFace
 }
@@ -56,10 +64,10 @@ export interface VersionProjection {
 export function ownVersionEvent(
   header: SessionRecord['header'],
   events: readonly SessionEvent[],
+  inheritedEventCount: SessionLogOffset,
 ): VersionProjection | undefined {
-  const inherited = header.seedLength ?? 0
   const ownEvents = events.filter((event): event is TurnForkVersionEvent => (
-    event.type === TURN_FORK_VERSION_EVENT && event.seq >= inherited
+    event.type === TURN_FORK_VERSION_EVENT && event.seq >= inheritedEventCount
   ))
   if (ownEvents.length === 0) return undefined
   if (ownEvents.length > 1) {
@@ -132,26 +140,22 @@ async function mapConcurrent<T, R>(
   return results
 }
 
-/** Full log for one session: live borrow, persisted inspection, query fallback. */
-async function readCurrentLog(deps: LineageDeps, sessionId: SessionId): Promise<readonly SessionEvent[]> {
-  const live = deps.sessions.get(sessionId)
-  if (live !== undefined) return live.events
-  if (deps.sessionPersistence !== undefined) return (await deps.sessionPersistence.inspect(sessionId)).events
-  return (await deps.sessionQuery.readSession(sessionId)).events
+interface VersionLog {
+  events: readonly SessionEvent[]
+  inheritedEventCount: SessionLogOffset
 }
 
-/** Own-version scan window for one lineage node: the tail from the seed boundary. */
-async function versionLog(
-  deps: LineageDeps,
-  record: SessionRecord,
-): Promise<readonly SessionEvent[]> {
-  const inherited = record.header.seedLength ?? 0
-  const live = deps.sessions.get(record.header.id)
-  if (live !== undefined) return live.events.slice(inherited)
-  if (deps.sessionPersistence !== undefined) {
-    return (await deps.sessionPersistence.readFrom(record.header.id, inherited)).events
+/** Full log and exact inherited cut: live borrow, persisted inspection, query fallback. */
+async function readLog(deps: LineageDeps, sessionId: SessionId): Promise<VersionLog> {
+  const live = deps.sessions.get(sessionId)
+  if (live !== undefined) {
+    return {
+      events: live.snapshotEvents(),
+      inheritedEventCount: live.inheritedEventCount,
+    }
   }
-  return (await deps.sessionQuery.readSession(record.header.id)).events.slice(inherited)
+  if (deps.sessionPersistence !== undefined) return deps.sessionPersistence.inspect(sessionId)
+  return deps.sessionQuery.readSession(sessionId)
 }
 
 function editableMessages(turns: readonly ClosedTurn[]): EditableMessageBlock[] {
@@ -213,10 +217,11 @@ export async function projectTimeline(deps: LineageDeps, sessionId: SessionId): 
     : targetTrace.ancestors.at(-1)?.header.id ?? sessionId
   const rootTrace = rootId === sessionId ? targetTrace : await deps.sessionQuery.traceSession(rootId)
   const lineage = flattenLineage(rootTrace.target, rootTrace.descendants)
-  const logs = await mapConcurrent(lineage, async ({ record }): Promise<readonly SessionEvent[]> => {
-    if (record.header.id === sessionId) return readCurrentLog(deps, sessionId)
-    if (record.header.parentSession === undefined) return []
-    return versionLog(deps, record)
+  const logs = await mapConcurrent(lineage, async ({ record }): Promise<VersionLog> => {
+    if (record.header.id === sessionId || record.header.parentSession !== undefined) {
+      return readLog(deps, record.header.id)
+    }
+    return { events: [], inheritedEventCount: SessionLogOffset(0) }
   })
   const recordsById = new Map(lineage.map(({ record }) => [record.header.id, record]))
   const currentPath = new Set<SessionId>()
@@ -227,7 +232,8 @@ export async function projectTimeline(deps: LineageDeps, sessionId: SessionId): 
   }
 
   const versions: VersionSummary[] = lineage.map(({ record, depth }, index) => {
-    const version = ownVersionEvent(record.header, logs[index] ?? [])
+    const log = logs[index] ?? { events: [], inheritedEventCount: SessionLogOffset(0) }
+    const version = ownVersionEvent(record.header, log.events, log.inheritedEventCount)
     return {
       sessionId: record.header.id,
       ...record.header.parentSession === undefined ? {} : { parentSessionId: record.header.parentSession },
@@ -272,7 +278,7 @@ export async function projectTimeline(deps: LineageDeps, sessionId: SessionId): 
   const currentIndex = versions.findIndex(version => version.current)
   const currentLog = logs[currentIndex]
   if (currentIndex < 0 || currentLog === undefined) throw new Error('当前版本不在版本树中。')
-  const turns = closedTurns(currentLog)
+  const turns = closedTurns(currentLog.events)
   const running: string[] = []
   for (const entry of lineage) {
     const agent = deps.agents.get(entry.record.header.id)

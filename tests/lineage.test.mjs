@@ -47,20 +47,23 @@ function versionEvent(seq, time, effectId, inverseSessionId) {
 function buildLineage() {
   const rootLog = turnLog()
   const root = {
-    header: { id: 'session-root', createdAt: 1000, seedLength: 0 },
+    header: { version: 0, id: 'session-root', createdAt: 1000, isSeeded: false },
+    inheritedEventCount: 0,
     live: false, persisted: true,
   }
 
   const branchLog = [...rootLog.slice(0, 2), versionEvent(2, 2000, 'effect-branch', 'session-root')]
   for (const event of turnLog().slice(2)) branchLog.push({ ...event, seq: branchLog.length, time: 3000 + branchLog.length })
   const branch = {
-    header: { id: 'session-branch', parentSession: 'session-root', seedLength: 2, createdAt: 2500 },
+    header: { version: 0, id: 'session-branch', parentSession: 'session-root', isSeeded: true, createdAt: 2500 },
+    inheritedEventCount: 2,
     live: false, persisted: true,
   }
 
   const branch2Log = [...branchLog.slice(0, 1), versionEvent(1, 4000, 'effect-branch-2', 'session-branch')]
   const branch2 = {
-    header: { id: 'session-branch-2', parentSession: 'session-branch', seedLength: 1, createdAt: 4500 },
+    header: { version: 0, id: 'session-branch-2', parentSession: 'session-branch', isSeeded: true, createdAt: 4500 },
+    inheritedEventCount: 1,
     live: false, persisted: true,
   }
 
@@ -99,25 +102,24 @@ function stubDeps(lineage, { current = 'session-branch', running = [] } = {}) {
         return { complete: true, root, target, ancestors, descendants: lineage.descendants }
       },
       readSession: async (id) => {
-        if (id === 'session-root') return { session: lineage.root.header, events: turnLog() }
-        if (id === 'session-branch') return { session: lineage.branch.header, events: lineage.branchLog }
-        if (id === 'session-branch-2') return { session: lineage.branch2.header, events: lineage.branch2Log }
+        if (id === 'session-root') return { session: lineage.root.header, inheritedEventCount: 0, events: turnLog() }
+        if (id === 'session-branch') return { session: lineage.branch.header, inheritedEventCount: 2, events: lineage.branchLog }
+        if (id === 'session-branch-2') return { session: lineage.branch2.header, inheritedEventCount: 1, events: lineage.branch2Log }
         throw new Error(`unknown ${id}`)
       },
     },
     sessionPersistence: {
-      inspect: async (id) => ({ events: records[id] === lineage.root ? turnLog() : records[id] === lineage.branch ? lineage.branchLog : lineage.branch2Log }),
-      readFrom: async (id, fromSeq) => {
-        const log = id === 'session-branch' ? lineage.branchLog : lineage.branch2Log
-        return { events: log.slice(fromSeq) }
-      },
+      inspect: async (id) => ({
+        events: records[id] === lineage.root ? turnLog() : records[id] === lineage.branch ? lineage.branchLog : lineage.branch2Log,
+        inheritedEventCount: records[id]?.inheritedEventCount ?? 0,
+      }),
     },
   }
 }
 
 test('ownVersionEvent validates schema, inverse pairing, and effect identity', () => {
   const { branch, branchLog } = buildLineage()
-  const projection = ownVersionEvent(branch.header, branchLog)
+  const projection = ownVersionEvent(branch.header, branchLog, branch.inheritedEventCount)
   assert.equal(projection.effectId, 'effect-branch')
   assert.equal(projection.inverseSessionId, 'session-root')
   assert.equal(projection.operation, 'edit')
@@ -127,15 +129,15 @@ test('ownVersionEvent validates schema, inverse pairing, and effect identity', (
   // Future schema version refuses to be interpreted.
   const futureLog = [...branchLog]
   futureLog[2] = { ...versionEvent(2, 2000, 'e', 'session-root'), data: { ...versionEvent(2, 2000, 'e', 'session-root').data, schemaVersion: 99 } }
-  assert.throws(() => ownVersionEvent(branch.header, futureLog), /更新版本/)
+  assert.throws(() => ownVersionEvent(branch.header, futureLog, branch.inheritedEventCount), /更新版本/)
 
   // Inverse mismatch is structural corruption.
   const mismatched = [...branchLog]
   mismatched[2] = { ...versionEvent(2, 2000, 'e', 'session-root'), data: { ...versionEvent(2, 2000, 'e', 'session-root').data, inverse: { kind: 'restore-version', sessionId: 'other' } } }
-  assert.throws(() => ownVersionEvent(branch.header, mismatched), /不匹配/)
+  assert.throws(() => ownVersionEvent(branch.header, mismatched, branch.inheritedEventCount), /不匹配/)
 
   // A log with no own version event projects undefined.
-  assert.equal(ownVersionEvent(branch.header, branchLog.slice(0, 2)), undefined)
+  assert.equal(ownVersionEvent(branch.header, branchLog.slice(0, 2), branch.inheritedEventCount), undefined)
 })
 
 test('projectTimeline builds versions, undo/redo stacks, messages, and running flags', async () => {

@@ -5,10 +5,15 @@
  * without the locale service the controller falls back to the English
  * dictionary through a local template interpolator.
  */
-import type { ClientContext, SessionId } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context } from '@deepseek-ai/cordis'
+import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/dsh-client-connection/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
+import { SessionId } from '@deepseek-ai/dsh-session/types'
 import { TURN_FORK_VIEW_ORDER, type TurnForkLocaleKey } from '../shared.ts'
 import { TurnForkController } from './controller.ts'
 import { TURN_FORK_EN, TURN_FORK_ZH } from './locales.ts'
@@ -17,6 +22,9 @@ import { TurnForkHeaderActions } from './TurnForkHeaderActions.tsx'
 import { AssistantMessageActions } from './AssistantMessageActions.tsx'
 
 export const inject = ['slots', 'conversation', 'connection', 'sessions']
+
+/** Browser context narrowed away from the host SessionStore augmentation. */
+type ClientContext = Omit<Context, 'sessions'> & { readonly sessions: ISessions }
 
 function templateFallback(template: string, params?: Record<string, unknown>): string {
   return template.replace(/\{(\w+)\}/g, (_, name: string) => (
@@ -58,7 +66,7 @@ export function apply(ctx: ClientContext): void {
     order: TURN_FORK_VIEW_ORDER,
     label: () => t('viewLabel'),
     ...locale === undefined ? {} : { locale: 'turn-fork' as const },
-    inject: (sessionId: SessionId) => controllerFor(sessionId).face,
+    inject: sessionId => controllerFor(SessionId(sessionId)).face,
   }, TurnForkTimelineView))
 
   ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register({
@@ -66,7 +74,7 @@ export function apply(ctx: ClientContext): void {
     id: 'turn-fork-controls',
     order: TURN_FORK_VIEW_ORDER,
     ...locale === undefined ? {} : { locale: 'turn-fork' as const },
-    inject: (sessionId: SessionId) => controllerFor(sessionId).face,
+    inject: sessionId => controllerFor(SessionId(sessionId)).face,
   }, TurnForkHeaderActions))
 
   ctx.slots.inject('conversation.chat.assistant-actions', () => ctx.slots.register({
@@ -74,6 +82,6 @@ export function apply(ctx: ClientContext): void {
     id: 'turn-fork-assistant-actions',
     order: 100,
     ...locale === undefined ? {} : { locale: 'turn-fork' as const },
-    inject: (sessionId: SessionId) => controllerFor(sessionId).face,
+    inject: sessionId => controllerFor(SessionId(sessionId)).face,
   }, AssistantMessageActions))
 }

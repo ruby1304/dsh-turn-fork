@@ -17,9 +17,9 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { AgentHandle, AgentOptions, AgentSetup } from '@deepseek-ai/dsh-agent'
-import type { PresetBearingSession } from '@deepseek-ai/dsh-agent-presets'
+import type {} from '@deepseek-ai/dsh-agent-presets'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { SessionEvent, SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
+import { SessionId, SessionLogOffset, type SessionEvent, type SessionHeader } from '@deepseek-ai/dsh-session'
 import type { Workspace } from '@deepseek-ai/dsh-workspace'
 import {
   TURN_FORK_PATH,
@@ -63,12 +63,12 @@ interface ForkSource {
   events: readonly SessionEvent[]
 }
 
-function presetIdOf(session: PresetBearingSession, events: readonly SessionEvent[]): string | undefined {
+function presetIdOf(header: SessionHeader, events: readonly SessionEvent[]): string | undefined {
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = events[index]
     if (event?.type === 'agent-preset/selected') return event.data.agentPreset
   }
-  return session.header.agentPreset
+  return header.agentPreset
 }
 
 /** Resolve the workspace a fork inherits, mirroring the official fork's
@@ -116,7 +116,7 @@ async function createChildAgent(
 ): Promise<AgentHandle> {
   const seed = buildForkSeed(source.events, boundary, version)
   const presets = ctx.get('agentPresets')
-  const presetId = presets !== undefined ? presetIdOf({ header: source.header, events: source.events } as PresetBearingSession, source.events) : undefined
+  const presetId = presets !== undefined ? presetIdOf(source.header, source.events) : undefined
   let agentPreset: string | undefined
   let setup: AgentSetup | undefined
   if (presets !== undefined && presetId !== undefined) {
@@ -126,17 +126,24 @@ async function createChildAgent(
   }
   const child = await ctx.agents.create({
     sessionId: childId,
-    seed: seed.events,
+    // dsh-session@0.1.5-rc.1 admits only the inherited prefix as the
+    // constructor seed: the library seeds its own end-seed marker at the cut,
+    // and the plugin-owned provenance event is appended below.
+    seed: seed.events.slice(0, seed.inheritedLength),
     meta: {
       ...source.header.cwd === undefined ? {} : { cwd: source.header.cwd },
       parentSession: source.id,
-      seedLength: seed.inheritedLength,
+      isSeeded: true,
       ...agentPreset === undefined ? {} : { agentPreset },
     },
+    inheritedEventCount: SessionLogOffset(seed.inheritedLength),
     agentOptions: options,
     ...setup === undefined ? {} : { setup },
   })
   try {
+    const provenance = seed.events[seed.inheritedLength]
+    if (provenance === undefined) throw new Error('fork seed lost its provenance event')
+    child.agent.session.append(provenance.type, provenance.data)
     await ctx.sessions.flush(child.agent.session)
     return child
   } catch (error: unknown) {
@@ -153,7 +160,7 @@ async function forkTransaction(
   fallbackOptions: AgentOptions | undefined,
   sourceRunning: boolean,
 ): Promise<TurnForkOperationResult> {
-  const childId = `session-${crypto.randomUUID()}` as SessionId
+  const childId = SessionId(`session-${crypto.randomUUID()}`)
   const inverses: OperationInverse[] = []
   try {
     const plan = planOperation(operation, source.events)
@@ -198,7 +205,7 @@ async function runFork(ctx: Context, operation: TurnForkOperation): Promise<Turn
     const snapshot = await ctx.sessionQuery.readSession(sourceId)
     return forkTransaction(ctx, { id: snapshot.session.id, header: snapshot.session, events: snapshot.events }, operation, undefined, sourceRunning)
   }
-  const source: ForkSource = { id: live.id, header: live.header, events: live.events }
+  const source: ForkSource = { id: live.id, header: live.header, events: live.snapshotEvents() }
   if (liveAgent === undefined) return forkTransaction(ctx, source, operation, undefined, sourceRunning)
   return liveAgent.runMaintenance(() => forkTransaction(ctx, source, operation, liveAgent.options, sourceRunning))
 }

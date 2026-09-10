@@ -7,7 +7,7 @@
 import type { IncomingMessage } from 'node:http'
 import type { AgentOptions } from '@deepseek-ai/dsh-agent'
 import type { ContentBlock, UserMessage } from '@deepseek-ai/dsh-llm'
-import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
+import { SessionSeq, type SessionEvent, type SessionId } from '@deepseek-ai/dsh-session'
 import {
   TURN_FORK_VERSION_EVENT,
   TURN_FORK_VERSION_SCHEMA,
@@ -250,7 +250,7 @@ export function buildForkSeed(
   const inheritedLength = events.length
   const versionEvent: TurnForkVersionEvent = {
     type: TURN_FORK_VERSION_EVENT,
-    seq: events.length,
+    seq: SessionSeq(events.length),
     time: Date.now(),
     data: version,
     ignorable: true,

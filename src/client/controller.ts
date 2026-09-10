@@ -1,15 +1,13 @@
 /** Browser controller for one session's Timeline projection and branch mutations. */
 import type {
-  ClientContext,
-  ConversationSnapshot,
   ISessions,
-  ObservableSnapshot,
   SessionFace,
-  SessionId,
   SessionListState,
-  SnapshotStore,
-} from '@deepseek-ai/dsh-client-runtime/client'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+  SessionEventSource,
+} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { Context } from '@deepseek-ai/cordis'
+import { createSnapshotStore, type ObservableSnapshot, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
 import {
   TURN_FORK_PATH,
@@ -25,6 +23,10 @@ import {
   type VersionOperation,
   type VersionSummary,
 } from '../shared.ts'
+import { sessionRevision } from './revision.ts'
+
+/** Browser context narrowed away from the host SessionStore augmentation. */
+type ClientContext = Omit<Context, 'sessions'> & { readonly sessions: ISessions }
 
 /** Reactive controller state shared by the Timeline and header entries. */
 export interface TurnForkState {
@@ -176,13 +178,6 @@ function decodeTimeline(value: unknown): TimelinePayload {
   }
 }
 
-export function conversationRevision(snapshot: ConversationSnapshot): string {
-  const turnEnds = [...snapshot.turnEnds.entries()]
-    .map(([turn, seq]) => `${String(turn)}:${String(seq)}`)
-    .join(',')
-  return [snapshot.openState, snapshot.removed, snapshot.hasMore, turnEnds].join('|')
-}
-
 function lineageRevision(snapshot: SessionListState, sessionId: SessionId): string {
   let root = sessionId
   const ancestorIds = new Set<SessionId>()
@@ -226,6 +221,8 @@ export class TurnForkController {
   private readonly sessions: ISessions
   private sessionSource: SessionFace | undefined
   private sessionSourceDispose: (() => void) | undefined
+  private eventSource: SessionEventSource | undefined
+  private eventSourceDispose: (() => void) | undefined
   private sessionRevision: string | undefined
   private listRevision = ''
   private refreshScheduled = false
@@ -245,7 +242,7 @@ export class TurnForkController {
     private readonly t: Translate<TurnForkLocaleKey>,
   ) {
     this.ctx = ctx
-    this.sessions = ctx.get('sessions') as unknown as ISessions
+    this.sessions = ctx.sessions
     this.face = {
       hooks: { turnFork: this.store },
       t: this.t,
@@ -331,26 +328,39 @@ export class TurnForkController {
       this.generation += 1
       disposeList()
       this.sessionSourceDispose?.()
+      this.eventSourceDispose?.()
       this.sessionSourceDispose = undefined
+      this.eventSourceDispose = undefined
       this.sessionSource = undefined
+      this.eventSource = undefined
       this.sessionRevision = undefined
       for (const cancel of [...this.navigationWaits]) cancel()
     }
   }
 
   private bindSessionSource(): boolean {
-    const source = this.sessions.binding(this.sessionId)?.session
-    if (source === this.sessionSource) return false
+    const binding = this.sessions.binding(this.sessionId)
+    const source = binding?.session
+    const events = binding?.eventSource
+    if (source === this.sessionSource && events === this.eventSource) return false
     this.sessionSourceDispose?.()
+    this.eventSourceDispose?.()
     this.sessionSource = source
-    this.sessionRevision = source === undefined ? undefined : conversationRevision(source.getSnapshot())
-    this.sessionSourceDispose = source?.subscribe(() => {
-      if (this.sessionSource !== source) return
-      const revision = conversationRevision(source.getSnapshot())
+    this.eventSource = events
+    this.sessionRevision = source === undefined
+      ? undefined
+      : sessionRevision(source.getSnapshot(), events?.getSnapshot().revision ?? 0)
+    const invalidateSource = (): void => {
+      if (this.sessionSource !== source || this.eventSource !== events || source === undefined) return
+      const revision = sessionRevision(source.getSnapshot(), events?.getSnapshot().revision ?? 0)
       if (revision === this.sessionRevision) return
       this.sessionRevision = revision
       this.invalidate()
+    }
+    this.sessionSourceDispose = source?.subscribe(() => {
+      invalidateSource()
     })
+    this.eventSourceDispose = events?.subscribe(invalidateSource)
     return true
   }
 

@@ -17,6 +17,7 @@ import {
   readJsonBody,
   rerollPlan,
   retryPlan,
+  sessionRevision,
 } from '../testing.mjs'
 
 let uid = 0
@@ -107,6 +108,12 @@ test('rerollPlan targets the latest turn with a settled textual reply', () => {
   assert.equal(plan.version.effect.targetTurn, 2)
   assert.equal(plan.queuedUsers.length, 1)
   assert.equal(plan.queuedUsers[0].content[0].text, 'prompt 2')
+})
+
+test('alpha.4 session revision includes the separate event-source revision', () => {
+  const snapshot = { openState: 'open', removed: false, hasMore: false }
+  assert.notEqual(sessionRevision(snapshot, 7), sessionRevision(snapshot, 8))
+  assert.notEqual(sessionRevision(snapshot, 7), sessionRevision({ ...snapshot, removed: true }, 7))
 })
 
 test('planOperation rejects non-edit actions inside pure planning is routed by kind', () => {

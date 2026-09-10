@@ -65,9 +65,9 @@ REJECTED；补上 ignorable → 重启 → 冷读 PASS），测试直接驱动�
 
 - **fork 语义。** 官方 `session.fork(atSeq)` RPC 的切割**包含**锚定回合，无法
   表达"编辑第 N 回合并重跑它"。因此本插件使用官方 fork 内部所用的同一事务缝
-  ——`ctx.agents.create`——在目标回合**之前**切割 seed，写入官方血缘 meta
-  （`parentSession`、`seedLength`、`cwd`、`agentPreset`），重挂载源会话的
-  preset，并在分支发布前完成持久化 flush。
+  ——`ctx.agents.create`——在目标回合**之前**切割 seed，写入 alpha.4 血缘字段
+  （`parentSession`、`isSeeded`、独立的 `inheritedEventCount`、`cwd`、
+  `agentPreset`），重挂载源会话的 preset，并在分支发布前完成持久化 flush。
 - **工作区。** 分支继承源会话的工作区挂载，语义与官方 fork 完全一致（重新
   attach，不做文件系统快照）。重跑会改写文件的任务时，工作树会停留在新分支
   的状态；需要工作区状态回滚请配合快照类插件（如 `dsh-checkpoint-rewind`）。
@@ -93,7 +93,15 @@ npm run build      # tsc 类型检查 + tsdown 宿主/客户端打包
 npm test           # 构建 + node:test（core、lineage、P0 持久化回归）
 ```
 
-0.1.2 以 DSH `0.1.1-rc.2` 开发并执行发布验证。三个插槽贡献通过 `slots.inject()` 等待 rc.2 的 slot 声明；`dsh-client-runtime/client` 使用 rc.2 隐式预加载的 client baseline，不再重复声明成插件专属 external。
+0.1.2 以 DSH `0.1.2-alpha.4` 和 Cordis `4.0.2` 开发并执行发布验证。浏览器端
+改用 alpha.4 Session Controller 和 client store，并等待 renderer、Conversation
+及 Chat 的 slot owner；代码不再依赖已移除的 `dsh-client-runtime`。npm 开发依赖
+把完整 DSH peer 闭包精确锁到 alpha.4，避免 prerelease 范围混入更高版本 alpha。
+
+这个构建不声称同时兼容 `0.1.1-rc.2`。两个宿主的创建字段（`seedLength` 与
+`isSeeded` + `inheritedEventCount`）及浏览器 service/module table 均不兼容。
+同一源码树可以维护显式的 rc.2 和 alpha.4 adapter，但同一份 manifest 与客户端
+产物无法如实支持两个版本。
 
 ### 测试
 
@@ -102,20 +110,22 @@ npm test           # 构建 + node:test（core、lineage、P0 持久化回归）
   再由全新子进程冷读（即"重启"）。阴性对照证明：去掉标记的同一份日志会被
   守卫拒绝。
 - `tests/core.test.mjs` —— steering 保真、计划边界、seed 构造、模型配置推导、
-  信任围栏矩阵、body 上限、操作解码。
+  alpha.4 客户端事件 revision、信任围栏矩阵、body 上限、操作解码。
 - `tests/lineage.test.mjs` —— 版本投影、撤销/重做栈、运行中标记。
-- `tests/rc2-lifecycle.test.mjs` 与 `tests/rc2-package-contract.test.mjs` ——
-  可选 Web 生命周期注入，以及精确的 rc.2 manifest/lock 闭环。
+- `tests/alpha4-lifecycle.test.mjs` 与
+  `tests/alpha4-package-contract.test.mjs` ——可选 Web 生命周期注入、经 alpha.4
+  创建 API 的 POST fork、客户端 loader 边界，以及精确的 alpha.4 manifest/lock
+  闭环。
 - `dsh-testkit.yaml` —— 真实宿主生命周期门禁（安装 → 启动 → 注册 → 卸载 →
   重启 → 残留检查），基于社区 [dsh-testkit](https://github.com/iiwish/dsh-testkit)，
-  并生成 `.github/workflows/dsh-lifecycle.yml` CI 工作流，两者都精确锁定 rc.2。
+  并生成 `.github/workflows/dsh-lifecycle.yml` CI 工作流，两者都精确锁定 alpha.4。
 
 ### Testkit 说明
 
-当前已发布的 dsh-testkit 所声明预发布范围在 semver 规则下不接受
-`0.1.1-rc.2`，因此本候选不把它放进 npm 开发锁，避免混入 rc.8 依赖图。仓库内
-quick-suite 契约和 CI action 仍精确锁定 rc.2；本地包门禁则由上面的直接生命周期、
-真实 JSONL 持久化和精确 package-lock 测试负责。
+当前已发布的 dsh-testkit 所声明预发布 peer 范围在 semver 规则下不接受
+`0.1.2-alpha.4`，因此本候选不把它放进 npm 开发锁。仓库内 quick-suite 契约和
+CI action 精确指向 alpha.4；本地包门禁由上面的直接生命周期、真实 JSONL
+持久化和精确 package-lock 测试负责，避免解析出混合 prerelease 依赖图。
 
 ## 许可证
 

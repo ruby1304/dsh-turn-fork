@@ -55,3 +55,4 @@ export {
   isTurnTailAssistant,
 } from './host/lineage.ts'
 export type { LineageDeps, PersistenceReaderFace, VersionProjection } from './host/lineage.ts'
+export { sessionRevision } from './client/revision.ts'

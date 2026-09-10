@@ -75,9 +75,9 @@ plugin:
   the anchored turn, which cannot express "edit turn N and re-run it". This
   plugin therefore uses the same underlying transaction seam the official
   fork uses internally — `ctx.agents.create` — with the seed cut *before* the
-  target turn, official lineage meta (`parentSession`, `seedLength`, `cwd`,
-  `agentPreset`), the source's preset re-mounted, and durability flushed
-  before the branch is announced.
+  target turn, alpha.4 lineage fields (`parentSession`, `isSeeded`, the
+  separate `inheritedEventCount`, `cwd`, and `agentPreset`), the source's
+  preset re-mounted, and durability flushed before the branch is announced.
 - **Workspace.** The fork inherits the source's workspace attachment exactly
   like the official fork does (re-attach, no filesystem snapshot). Re-running
   a task that rewrites files can therefore leave the working tree at the new
@@ -110,7 +110,27 @@ npm run build      # tsc typecheck + tsdown host/client bundles
 npm test           # build + node:test (core, lineage, P0 persistence regression)
 ```
 
-Version 0.1.2 is developed and release-tested against DSH `0.1.1-rc.2`. Slot contributions wait for their rc.2 declarations through `slots.inject()`, while `dsh-client-runtime/client` uses rc.2's implicit preloaded client baseline rather than a redundant package-specific external.
+Version 0.1.4 is developed and release-tested against DSH `0.1.5-rc.1` and
+Cordis `4.0.2`. The browser side uses the Session Controller and client store,
+waits for the renderer, Conversation, and Chat slot owners, and contains no
+dependency on the removed `dsh-client-runtime` package. The npm development
+graph pins the full DSH peer closure to `0.1.5-rc.1` because the packages'
+prerelease-compatible ranges would otherwise allow npm to mix in a newer
+alpha.
+
+`0.1.5-rc.1` tightened the seeded-session contract in two ways this build now
+honours. The session constructor admits only the exact inherited prefix, so the
+plugin's provenance event is appended to the constructed session instead of
+riding along in the constructor seed; and a stored seeded log must carry the
+library's `session/end-seed` marker at the inherited cut before the cold-read
+guard will interpret it. The persistence regression in `tests/` covers both, and
+`inspect`/`readFrom` are replaced by the `open`/`read`/`close` handle seam.
+
+This build does not claim dual compatibility with `0.1.1-rc.2`. The two hosts
+have incompatible creation fields (`seedLength` versus `isSeeded` plus
+`inheritedEventCount`) and incompatible browser service/module tables. A
+shared source tree could carry explicit rc.2 and `0.1.5-rc.1` adapters, but one
+manifest and one emitted client bundle cannot truthfully target both.
 
 ### Tests
 
@@ -120,25 +140,27 @@ Version 0.1.2 is developed and release-tested against DSH `0.1.1-rc.2`. Slot con
   a fresh child process ("restart"). A negative control proves the guard
   rejects the same log with the marker stripped.
 - `tests/core.test.mjs` — steering fidelity, plan boundaries, seed
-  construction, model-config derivation, trust-fence matrix, body cap,
-  operation decoding.
+  construction, model-config derivation, alpha.4 client event revisions,
+  trust-fence matrix, body cap, operation decoding.
 - `tests/lineage.test.mjs` — version projection, undo/redo stacks, running
   flags.
-- `tests/rc2-lifecycle.test.mjs` and `tests/rc2-package-contract.test.mjs` —
-  optional Web lifecycle injection plus exact rc.2 manifest/lock closure.
+- `tests/alpha4-lifecycle.test.mjs` and
+  `tests/alpha4-package-contract.test.mjs` — optional Web lifecycle injection,
+  a POST fork through the alpha.4 creation API, client-loader boundaries, and
+  exact alpha.4 manifest/lock closure.
 - `dsh-testkit.yaml` — real-host lifecycle gate (install → boot → register →
   uninstall → reboot → residue) via the community
   [dsh-testkit](https://github.com/iiwish/dsh-testkit), plus the generated
-  `.github/workflows/dsh-lifecycle.yml` CI workflow, both pinned to rc.2.
+  `.github/workflows/dsh-lifecycle.yml` CI workflow, both pinned to alpha.4.
 
 ### Testkit notes
 
-The published dsh-testkit package currently declares a prerelease range that
-does not semver-admit `0.1.1-rc.2`, so it is deliberately not part of this
-candidate's npm development lock. The checked-in quick-suite contract and CI
-action remain pinned to rc.2; local package checks use the direct lifecycle,
-real JSONL persistence, and exact package-lock tests above without resolving a
-mixed rc.8 graph.
+The published dsh-testkit package currently declares prerelease peer ranges
+that do not semver-admit `0.1.2-alpha.4`, so it is deliberately absent from
+this candidate's npm development lock. The checked-in quick-suite contract and
+CI action target alpha.4; local package checks use the direct lifecycle, real
+JSONL persistence, and exact package-lock tests above without resolving a
+mixed prerelease graph.
 
 ## License
 
