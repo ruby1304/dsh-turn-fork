@@ -38,9 +38,10 @@
   },
   "scripts": {
     "build": "node ./scripts/build.mjs",
-    "typecheck": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
+    "release:check": "npm run build && npm test && npm pack --dry-run --ignore-scripts",
     "test": "npm run build && node --test \"tests/*.test.mjs\"",
-    "prepublishOnly": "npm run build"
+    "typecheck": "tsc -p tsconfig.json"
   },
   "keywords": [
     "deepseek",
