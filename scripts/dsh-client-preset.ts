@@ -14,7 +14,7 @@
  */
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { basename, dirname, resolve as resolvePath, sep } from 'node:path'
+import { basename, dirname, relative, resolve as resolvePath, sep } from 'node:path'
 import type { UserConfig } from 'tsdown'
 import { transform } from 'lightningcss'
 
@@ -22,9 +22,17 @@ import { transform } from 'lightningcss'
  * Virtual-id wrapper keeping module CSS away from tsdown's own css pipeline
  * (which requires @tsdown/css). The suffix matters: tsdown's guard matches ids
  * ending in `.css`, so the virtual id must not.
+ *
+ * The id carries a PACKAGE-RELATIVE path, never an absolute one: the bundler
+ * prints module ids into its region comments, so an absolute id would publish
+ * the maintainer's home directory and checkout layout inside the shipped
+ * bundle.
  */
 const CSS_VIRTUAL_PREFIX = '\0dsh-css:'
 const CSS_VIRTUAL_SUFFIX = '.mjs'
+
+/** Build root every virtual id is relative to; also the read/watch base. */
+const BUILD_ROOT = process.cwd()
 
 /**
  * Wire/type layers a client bundle may inline: browser-safe contracts with no
@@ -126,11 +134,13 @@ export function clientBundle(id: string, options: UserConfig = {}): UserConfig {
       resolveId(source: string, importer: string | undefined) {
         if (!source.endsWith('.module.css')) return null
         const abs = importer !== undefined ? sourceAssetPath(source, importer) : source
-        return CSS_VIRTUAL_PREFIX + abs + CSS_VIRTUAL_SUFFIX
+        const rel = relative(BUILD_ROOT, abs).split(sep).join('/')
+        return CSS_VIRTUAL_PREFIX + rel + CSS_VIRTUAL_SUFFIX
       },
       async load(virtualId: string) {
         if (!virtualId.startsWith(CSS_VIRTUAL_PREFIX)) return null
-        const fileId = virtualId.slice(CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
+        const rel = virtualId.slice(CSS_VIRTUAL_PREFIX.length, -CSS_VIRTUAL_SUFFIX.length)
+        const fileId = resolvePath(BUILD_ROOT, rel)
         // The virtual id otherwise hides the physical stylesheet from Rolldown's watch graph.
         this.addWatchFile(fileId)
         const source = await readFile(fileId)
